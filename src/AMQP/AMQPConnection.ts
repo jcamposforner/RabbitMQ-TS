@@ -10,49 +10,37 @@ export class AMQPConnection {
    *    protocol
    * }
    */
-  private connectionParameters: AMQPConnectionParameters;
+  protected connectionParameters: AMQPConnectionParameters;
 
   /**
    * AMQP Connection
    */
   private connection: Connection;
 
+  private currentQueue: string;
+
   /**
    * AMQP Channel
    */
-  private channel: amqp.Channel;
-
-  private currentQueue: string;
+  public channel: amqp.Channel;
 
   public constructor(parameters: AMQPConnectionParameters) {
     this.connectionParameters = parameters;
   }
 
-  public async connect(): Promise<this> {
+  public async connect(
+    queue: string,
+    exchange: AMQPExchangeParameters
+  ): Promise<this> {
     return new Promise((resolve, reject) =>
       amqp.connect(
         `${this.connectionParameters.protocol}://${this.connectionParameters.host}`,
         (err: any, connection: Connection) => {
           if (err) reject(err);
           this.connection = connection;
-          resolve(this);
+          this.createChannel(reject, queue, exchange, resolve);
         }
       )
-    );
-  }
-
-  public createChannel(
-    queue: string,
-    exchange: AMQPExchangeParameters
-  ): Promise<this> {
-    return new Promise((resolve, reject) =>
-      this.connection.createChannel((err, channel) => {
-        if (err) reject(err);
-        this.channel = channel;
-        this.setConfiguration(queue, exchange);
-
-        resolve(this);
-      })
     );
   }
 
@@ -64,17 +52,31 @@ export class AMQPConnection {
     return this.currentQueue;
   }
 
-  private setConfiguration(queue: string, exchange: AMQPExchangeParameters) {
+  protected createChannel(
+    reject: (reason?: any) => void,
+    queue: string,
+    exchange: AMQPExchangeParameters,
+    resolve: (value?: this | PromiseLike<this> | undefined) => void
+  ) {
+    this.connection.createChannel((err, channel) => {
+      if (err) reject(err);
+      this.channel = channel;
+      this.setConfiguration(queue, exchange);
+      resolve(this);
+    });
+  }
+
+  protected setConfiguration(queue: string, exchange: AMQPExchangeParameters) {
     this.setQueue(queue);
     this.setExchange(exchange);
   }
 
-  private setQueue(queue: string) {
+  protected setQueue(queue: string) {
     this.currentQueue = queue;
     this.channel.assertQueue(queue, { durable: true });
   }
 
-  private setExchange(exchange: AMQPExchangeParameters) {
+  protected setExchange(exchange: AMQPExchangeParameters) {
     this.channel.assertExchange(exchange.exchange, exchange.type, {
       durable: true
     });
