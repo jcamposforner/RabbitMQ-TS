@@ -48,6 +48,15 @@ export class AMQPConnection {
     return this.channel.sendToQueue(this.currentQueue, Buffer.from(msg));
   }
 
+  public publish(
+    msg: string,
+    severity: string,
+    exchange: string,
+    options = {}
+  ): boolean {
+    return this.channel.publish(exchange, severity, Buffer.from(msg), options);
+  }
+
   public getQueue(): string {
     return this.currentQueue;
   }
